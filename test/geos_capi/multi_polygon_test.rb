@@ -31,6 +31,16 @@ class GeosMultiPolygonTest < Minitest::Test # :nodoc:
     mp.centroid.as_text
   end
 
+  def test_simplify_polygon_hull
+    skip_geos_version_less_then("3.11")
+
+    input = @factory.parse_wkt("MULTIPOLYGON (((0 0, 0 2, 4 2, 4 4, 0 4, 0 6, 6 6, 6 0, 0 0)))")
+    expected = @factory.parse_wkt("MULTIPOLYGON (((0 0, 0 6, 6 6, 6 0, 0 0)))")
+
+    assert_equal expected, input.simplify_polygon_hull(0.5, true)
+    assert_equal input, input.simplify_polygon_hull(1.0, false)
+  end
+
   def test_polygonize
     input = @factory.parse_wkt("MULTIPOLYGON (((0 0, 1 1, 1 0, 0 0)))")
     expected = @factory.parse_wkt("GEOMETRYCOLLECTION (MULTIPOLYGON (((0 0, 1 1, 1 0, 0 0))))")
