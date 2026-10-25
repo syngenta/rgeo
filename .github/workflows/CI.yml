@@ -36,8 +36,8 @@ jobs:
     continue-on-error: ${{ matrix.ruby == 'head' || matrix.os == 'windows' || matrix.os == 'macos' }}
     name: Ruby ${{ matrix.ruby }} (${{ matrix.os }})
     steps:
-      - uses: actions/checkout@v3
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
@@ -62,8 +62,8 @@ jobs:
   Memcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1
         with:
           ruby-version: '3.1'
           bundler-cache: true
@@ -76,8 +76,8 @@ jobs:
   RuboCop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1
         with:
           ruby-version: 'head'
           bundler-cache: true
@@ -89,7 +89,7 @@ jobs:
     #   outdated clang-format package.
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install clang-format
         run: sudo apt-get install -yqq clang-format
       - name: Show version
