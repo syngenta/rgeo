@@ -20,6 +20,8 @@ class GeosNativeMemoryTest < Minitest::Test
   end
 
   def test_explicit_preparation_is_counted_once
+    # Exclude Ruby's lazily allocated validity-cache storage from this comparison.
+    @polygon.check_validity!
     original_size = ObjectSpace.memsize_of(@polygon)
     @polygon.prepare!
     prepared_size = ObjectSpace.memsize_of(@polygon)
@@ -41,8 +43,7 @@ class GeosNativeMemoryTest < Minitest::Test
   end
 
   def test_native_allocations_apply_gc_pressure
-    wkb = [1, 2, 2048].pack("CL<L<") +
-          Array.new(2048) { |i| [i.to_f, (i % 2).to_f] }.flatten.pack("E*")
+    wkb = large_line_wkb
     without_gc do
       before = GC.stat(:malloc_increase_bytes)
       geometry = @factory.parse_wkb(wkb)
@@ -53,11 +54,12 @@ class GeosNativeMemoryTest < Minitest::Test
   end
 
   def test_preparation_applies_gc_pressure
+    geometry = @factory.parse_wkb(large_line_wkb)
     without_gc do
       before = GC.stat(:malloc_increase_bytes)
-      @polygon.prepare!
+      geometry.prepare!
       allocated = GC.stat(:malloc_increase_bytes) - before
-      assert_operator allocated, :>=, 6 * 16
+      assert_operator allocated, :>=, 2048 * 16
     end
   end
 
@@ -135,6 +137,11 @@ class GeosNativeMemoryTest < Minitest::Test
   end
 
   private
+
+  def large_line_wkb
+    [1, 2, 2048].pack("CL<L<") +
+      Array.new(2048) { |i| [i.to_f, (i % 2).to_f] }.flatten.pack("E*")
+  end
 
   def without_gc
     previously_disabled = GC.disable

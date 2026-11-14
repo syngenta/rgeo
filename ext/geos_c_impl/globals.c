@@ -55,7 +55,6 @@ notice_handler(const char* fmt, ...)
 #endif
 }
 
-
 void
 rgeo_init_geos_globals()
 {
