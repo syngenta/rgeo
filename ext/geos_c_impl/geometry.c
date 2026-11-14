@@ -75,8 +75,9 @@ compute_dimension(const GEOSGeometry* geom)
 // Returns a prepared geometry, honoring the preparation policy.
 
 static const GEOSPreparedGeometry*
-rgeo_request_prepared_geometry(RGeo_GeometryData* object_data)
+rgeo_request_prepared_geometry(VALUE object)
 {
+  RGeo_GeometryData* object_data = RGEO_GEOMETRY_DATA_PTR(object);
   const GEOSPreparedGeometry* prep;
 
   prep = object_data->prep;
@@ -91,6 +92,7 @@ rgeo_request_prepared_geometry(RGeo_GeometryData* object_data)
     }
     if (prep) {
       object_data->prep = prep;
+      rgeo_account_prepared_memory(object);
     } else {
       object_data->prep = (const GEOSPreparedGeometry*)3;
     }
@@ -153,6 +155,7 @@ method_geometry_prepare(VALUE self)
       }
     }
   }
+  rgeo_account_prepared_memory(self);
   return self;
 }
 
@@ -416,19 +419,20 @@ method_geometry_disjoint(VALUE self, VALUE rhs)
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
   self_geom = self_data->geom;
   if (self_geom) {
-    rhs_geom =
-      rgeo_convert_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
+    rhs = rgeo_cast_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
     if (state) {
       rb_jump_tag(state);
     }
+    rhs_geom = RGEO_GEOMETRY_DATA_PTR(rhs)->geom;
 #ifdef RGEO_GEOS_SUPPORTS_PREPARED2
-    prep = rgeo_request_prepared_geometry(self_data);
+    prep = rgeo_request_prepared_geometry(self);
     if (prep)
       result = GEOSPreparedDisjoint(prep, rhs_geom) ? Qtrue : Qfalse;
     else
 #endif
       result = GEOSDisjoint(self_geom, rhs_geom) ? Qtrue : Qfalse;
   }
+  RB_GC_GUARD(rhs);
   return result;
 }
 
@@ -449,13 +453,13 @@ method_geometry_intersects(VALUE self, VALUE rhs)
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
   self_geom = self_data->geom;
   if (self_geom) {
-    rhs_geom =
-      rgeo_convert_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
+    rhs = rgeo_cast_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
     if (state) {
       rb_jump_tag(state);
     }
+    rhs_geom = RGEO_GEOMETRY_DATA_PTR(rhs)->geom;
 #ifdef RGEO_GEOS_SUPPORTS_PREPARED1
-    prep = rgeo_request_prepared_geometry(self_data);
+    prep = rgeo_request_prepared_geometry(self);
     if (prep)
       val = GEOSPreparedIntersects(prep, rhs_geom);
     else
@@ -467,6 +471,7 @@ method_geometry_intersects(VALUE self, VALUE rhs)
       result = Qtrue;
     }
   }
+  RB_GC_GUARD(rhs);
   return result;
 }
 
@@ -487,13 +492,13 @@ method_geometry_touches(VALUE self, VALUE rhs)
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
   self_geom = self_data->geom;
   if (self_geom) {
-    rhs_geom =
-      rgeo_convert_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
+    rhs = rgeo_cast_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
     if (state) {
       rb_jump_tag(state);
     }
+    rhs_geom = RGEO_GEOMETRY_DATA_PTR(rhs)->geom;
 #ifdef RGEO_GEOS_SUPPORTS_PREPARED2
-    prep = rgeo_request_prepared_geometry(self_data);
+    prep = rgeo_request_prepared_geometry(self);
     if (prep)
       val = GEOSPreparedTouches(prep, rhs_geom);
     else
@@ -505,6 +510,7 @@ method_geometry_touches(VALUE self, VALUE rhs)
       result = Qtrue;
     }
   }
+  RB_GC_GUARD(rhs);
   return result;
 }
 
@@ -525,13 +531,13 @@ method_geometry_crosses(VALUE self, VALUE rhs)
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
   self_geom = self_data->geom;
   if (self_geom) {
-    rhs_geom =
-      rgeo_convert_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
+    rhs = rgeo_cast_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
     if (state) {
       rb_jump_tag(state);
     }
+    rhs_geom = RGEO_GEOMETRY_DATA_PTR(rhs)->geom;
 #ifdef RGEO_GEOS_SUPPORTS_PREPARED2
-    prep = rgeo_request_prepared_geometry(self_data);
+    prep = rgeo_request_prepared_geometry(self);
     if (prep)
       val = GEOSPreparedCrosses(prep, rhs_geom);
     else
@@ -543,6 +549,7 @@ method_geometry_crosses(VALUE self, VALUE rhs)
       result = Qtrue;
     }
   }
+  RB_GC_GUARD(rhs);
   return result;
 }
 
@@ -563,13 +570,13 @@ method_geometry_within(VALUE self, VALUE rhs)
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
   self_geom = self_data->geom;
   if (self_geom) {
-    rhs_geom =
-      rgeo_convert_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
+    rhs = rgeo_cast_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
     if (state) {
       rb_jump_tag(state);
     }
+    rhs_geom = RGEO_GEOMETRY_DATA_PTR(rhs)->geom;
 #ifdef RGEO_GEOS_SUPPORTS_PREPARED2
-    prep = rgeo_request_prepared_geometry(self_data);
+    prep = rgeo_request_prepared_geometry(self);
     if (prep)
       val = GEOSPreparedWithin(prep, rhs_geom);
     else
@@ -581,6 +588,7 @@ method_geometry_within(VALUE self, VALUE rhs)
       result = Qtrue;
     }
   }
+  RB_GC_GUARD(rhs);
   return result;
 }
 
@@ -601,13 +609,13 @@ method_geometry_contains(VALUE self, VALUE rhs)
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
   self_geom = self_data->geom;
   if (self_geom) {
-    rhs_geom =
-      rgeo_convert_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
+    rhs = rgeo_cast_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
     if (state) {
       rb_jump_tag(state);
     }
+    rhs_geom = RGEO_GEOMETRY_DATA_PTR(rhs)->geom;
 #ifdef RGEO_GEOS_SUPPORTS_PREPARED1
-    prep = rgeo_request_prepared_geometry(self_data);
+    prep = rgeo_request_prepared_geometry(self);
     if (prep)
       val = GEOSPreparedContains(prep, rhs_geom);
     else
@@ -619,6 +627,7 @@ method_geometry_contains(VALUE self, VALUE rhs)
       result = Qtrue;
     }
   }
+  RB_GC_GUARD(rhs);
   return result;
 }
 
@@ -639,13 +648,13 @@ method_geometry_overlaps(VALUE self, VALUE rhs)
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
   self_geom = self_data->geom;
   if (self_geom) {
-    rhs_geom =
-      rgeo_convert_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
+    rhs = rgeo_cast_to_geos_geometry(self_data->factory, rhs, Qnil, &state);
     if (state) {
       rb_jump_tag(state);
     }
+    rhs_geom = RGEO_GEOMETRY_DATA_PTR(rhs)->geom;
 #ifdef RGEO_GEOS_SUPPORTS_PREPARED2
-    prep = rgeo_request_prepared_geometry(self_data);
+    prep = rgeo_request_prepared_geometry(self);
     if (prep)
       val = GEOSPreparedOverlaps(prep, rhs_geom);
     else
@@ -657,6 +666,7 @@ method_geometry_overlaps(VALUE self, VALUE rhs)
       result = Qtrue;
     }
   }
+  RB_GC_GUARD(rhs);
   return result;
 }
 
@@ -1010,15 +1020,16 @@ method_geometry_initialize_copy(VALUE self, VALUE orig)
 
   // Clear out any existing value
   self_data = RGEO_GEOMETRY_DATA_PTR(self);
+  prep = self_data->prep;
+  if (prep && prep != (GEOSPreparedGeometry*)1 &&
+      prep != (GEOSPreparedGeometry*)2 && prep != (GEOSPreparedGeometry*)3) {
+    GEOSPreparedGeom_destroy(prep);
+  }
   if (self_data->geom) {
     GEOSGeom_destroy(self_data->geom);
     self_data->geom = NULL;
   }
-  prep = self_data->prep;
-  if (prep && prep != (GEOSPreparedGeometry*)1 &&
-      prep != (GEOSPreparedGeometry*)2) {
-    GEOSPreparedGeom_destroy(prep);
-  }
+  rgeo_unaccount_geometry_memory(self_data);
   self_data->prep = NULL;
   self_data->factory = Qnil;
   self_data->klasses = Qnil;
@@ -1039,6 +1050,7 @@ method_geometry_initialize_copy(VALUE self, VALUE orig)
           : NULL;
       self_data->factory = orig_data->factory;
       self_data->klasses = orig_data->klasses;
+      rgeo_account_geometry_memory(self);
     }
   }
   return self;
@@ -1056,14 +1068,15 @@ method_geometry_steal(VALUE self, VALUE orig)
   if (geom) {
     // Clear out any existing value
     self_data = RGEO_GEOMETRY_DATA_PTR(self);
+    prep = self_data->prep;
+    if (prep && prep != (GEOSPreparedGeometry*)1 &&
+        prep != (GEOSPreparedGeometry*)2 && prep != (GEOSPreparedGeometry*)3) {
+      GEOSPreparedGeom_destroy(prep);
+    }
     if (self_data->geom) {
       GEOSGeom_destroy(self_data->geom);
     }
-    prep = self_data->prep;
-    if (prep && prep != (GEOSPreparedGeometry*)1 &&
-        prep != (GEOSPreparedGeometry*)2) {
-      GEOSPreparedGeom_destroy(prep);
-    }
+    rgeo_unaccount_geometry_memory(self_data);
 
     // Steal value from orig
     orig_data = RGEO_GEOMETRY_DATA_PTR(orig);
@@ -1071,6 +1084,9 @@ method_geometry_steal(VALUE self, VALUE orig)
     self_data->prep = orig_data->prep;
     self_data->factory = orig_data->factory;
     self_data->klasses = orig_data->klasses;
+    self_data->geom_size = orig_data->geom_size;
+    self_data->prep_size = orig_data->prep_size;
+    orig_data->geom_size = orig_data->prep_size = 0;
 
     // Clear out orig
     orig_data->geom = NULL;

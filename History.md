@@ -1,3 +1,12 @@
+### 3.1.0.2 (Syngenta fork, prepared for release)
+
+**Bug Fixes**
+
+* Report estimated GEOS geometry and prepared-index storage to Ruby's GC, including explicit and automatic preparation.
+* Keep native-memory accounting balanced across copy, detach, replacement, Marshal and destruction; retain cast geometry owners during GC.
+* Preserve multipolygon hull support from 3.1.0.1 and keep prepared-geometry optimization enabled.
+* Leave GEOS exception handling unchanged. The separate C++ exception-memory fix is deferred to 3.1.0.3.
+
 ### Unreleased
 
 **Bug Fixes**
