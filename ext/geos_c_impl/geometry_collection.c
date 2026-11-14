@@ -6,7 +6,7 @@
 
 #ifdef RGEO_GEOS_SUPPORTED
 
-#include <geos_c.h>
+#include "geos_calls.h"
 #include <ruby.h>
 
 #include "coordinates.h"
@@ -84,16 +84,13 @@ create_geometry_collection(VALUE module, int type, VALUE factory, VALUE array)
     }
   }
   collection = GEOSGeom_createCollection(type, geoms, len);
+  FREE(geoms);
+  rgeo_raise_geos_error();
   if (collection) {
     result = rgeo_wrap_geos_geometry(factory, collection, module);
     RGEO_GEOMETRY_DATA_PTR(result)->klasses = klasses;
   }
 
-  // NOTE: We are assuming that GEOS will do its own cleanup of the
-  // element geometries if it fails to create the collection, so we
-  // are not doing that ourselves. If that turns out not to be the
-  // case, this will be a memory leak.
-  FREE(geoms);
   if (state) {
     rb_jump_tag(state);
   }

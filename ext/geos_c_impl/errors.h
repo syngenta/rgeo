@@ -22,6 +22,13 @@ extern VALUE rb_eGeosError;
 void
 rgeo_init_geos_errors();
 
+RBIMPL_ATTR_FORMAT(RBIMPL_PRINTF_FORMAT, 1, 2)
+void
+rgeo_geos_error_handler(const char* format, ...);
+
+void
+rgeo_raise_geos_error(void);
+
 RGEO_END_C
 
 #endif // RGEO_GEOS_SUPPORTED

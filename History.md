@@ -1,3 +1,11 @@
+### 3.1.0.3 (Syngenta fork, prepared for release)
+
+**Bug Fixes**
+
+* Include the prepared/native-memory accounting fixes from 3.1.0.2.
+* Record GEOS errors in the native callback and raise Ruby exceptions only after GEOS returns, allowing C++ exception storage to be released.
+* Free temporary constructor arrays before raising, preserve exception classes and colon-containing details, and reject predicate error status 2.
+
 ### 3.1.0.2 (Syngenta fork, prepared for release)
 
 **Bug Fixes**
