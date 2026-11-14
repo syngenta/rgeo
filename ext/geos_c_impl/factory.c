@@ -6,7 +6,7 @@
 
 #ifdef RGEO_GEOS_SUPPORTED
 
-#include <geos_c.h>
+#include "geos_calls.h"
 #include <ruby.h>
 
 #include "errors.h"
@@ -20,6 +20,88 @@
 #include "ruby_more.h"
 
 RGEO_BEGIN_C
+
+/*
+ * GEOS's C API exposes no owned-memory size. Estimate coordinate storage
+ * (including Z/M capacity) and component overhead. Prepared indexes are
+ * reserved separately because GEOS builds them lazily.
+ *
+ * Bound the base estimate so base + prepared reserve fits in ssize_t.
+ */
+static size_t
+add_geometry_memory(size_t size, size_t count, size_t item_size)
+{
+  const size_t limit = (SIZE_MAX / 2 - 128) / 3;
+  return count > (limit - size) / item_size ? limit : size + count * item_size;
+}
+
+static size_t
+estimate_geometry_memory(const GEOSGeometry* geom)
+{
+  if (!geom)
+    return 0;
+  size_t size = 128;
+  int type = GEOSGeomTypeId(geom);
+  if (type == GEOS_POLYGON) {
+    size = add_geometry_memory(
+      size, estimate_geometry_memory(GEOSGetExteriorRing(geom)), 1);
+    int count = GEOSGetNumInteriorRings(geom);
+    for (int i = 0; i < count; i++)
+      size = add_geometry_memory(
+        size, estimate_geometry_memory(GEOSGetInteriorRingN(geom, i)), 1);
+  } else if (type >= GEOS_MULTIPOINT && type <= GEOS_GEOMETRYCOLLECTION) {
+    int count = GEOSGetNumGeometries(geom);
+    for (int i = 0; i < count; i++) {
+      size = add_geometry_memory(size, 1, sizeof(void*));
+      size = add_geometry_memory(
+        size, estimate_geometry_memory(GEOSGetGeometryN(geom, i)), 1);
+    }
+  } else {
+    int count = GEOSGetNumCoordinates(geom);
+    if (count > 0)
+      size = add_geometry_memory(size, (size_t)count, 4 * sizeof(double));
+  }
+  return size;
+}
+
+void
+rgeo_account_geometry_memory(VALUE object)
+{
+  RGeo_GeometryData* data = RGEO_GEOMETRY_DATA_PTR(object);
+  data->geom_size = estimate_geometry_memory(data->geom);
+  rb_gc_adjust_memory_usage((ssize_t)data->geom_size);
+  RB_GC_GUARD(object);
+}
+
+void
+rgeo_account_prepared_memory(VALUE object)
+{
+  RGeo_GeometryData* data = RGEO_GEOMETRY_DATA_PTR(object);
+  const GEOSPreparedGeometry* prep = data->prep;
+  if (!data->prep_size && prep && prep != (GEOSPreparedGeometry*)1 &&
+      prep != (GEOSPreparedGeometry*)2 && prep != (GEOSPreparedGeometry*)3) {
+    data->prep_size = 128 + data->geom_size * 2;
+    rb_gc_adjust_memory_usage((ssize_t)data->prep_size);
+  }
+  RB_GC_GUARD(object);
+}
+
+void
+rgeo_unaccount_geometry_memory(RGeo_GeometryData* data)
+{
+  size_t size = data->geom_size + data->prep_size;
+  data->geom_size = data->prep_size = 0;
+  rb_gc_adjust_memory_usage(-(ssize_t)size);
+}
+
+static size_t
+geometry_memsize(const void* ptr)
+{
+  if (!ptr)
+    return 0;
+  const RGeo_GeometryData* data = ptr;
+  return sizeof(*data) + data->geom_size + data->prep_size;
+}
 
 /**** RUBY AND GEOS CALLBACKS ****/
 
@@ -70,15 +152,16 @@ destroy_geometry_func(void* data)
   const GEOSPreparedGeometry* prep;
 
   geometry_data = (RGeo_GeometryData*)data;
-  if (geometry_data->geom) {
-    GEOSGeom_destroy(geometry_data->geom);
-  }
   prep = geometry_data->prep;
   if (prep && prep != (const GEOSPreparedGeometry*)1 &&
       prep != (const GEOSPreparedGeometry*)2 &&
       prep != (const GEOSPreparedGeometry*)3) {
     GEOSPreparedGeom_destroy(prep);
   }
+  if (geometry_data->geom) {
+    GEOSGeom_destroy(geometry_data->geom);
+  }
+  rgeo_unaccount_geometry_memory(geometry_data);
   FREE(geometry_data);
 }
 
@@ -181,6 +264,7 @@ const rb_data_type_t rgeo_geometry_type = { .wrap_struct_name = "RGeo/Geometry",
                                             .function = {
                                               .dmark = mark_geometry_func,
                                               .dfree = destroy_geometry_func,
+                                              .dsize = geometry_memsize,
 #ifdef HAVE_RB_GC_MARK_MOVABLE
                                               .dcompact = compact_geometry_func,
 #endif
@@ -790,6 +874,7 @@ rgeo_wrap_geos_geometry(VALUE factory, GEOSGeometry* geom, VALUE klass)
         GEOSSetSRID(geom, factory_data->srid);
       }
       data->geom = geom;
+      data->geom_size = data->prep_size = 0;
       data->prep =
         factory_data &&
             ((factory_data->flags & RGEO_FACTORYFLAGS_PREPARE_HEURISTIC) != 0)
@@ -798,6 +883,8 @@ rgeo_wrap_geos_geometry(VALUE factory, GEOSGeometry* geom, VALUE klass)
       data->factory = factory;
       data->klasses = klasses;
       result = TypedData_Wrap_Struct(klass, &rgeo_geometry_type, data);
+      rgeo_account_geometry_memory(result);
+      RB_GC_GUARD(result);
     }
   }
   return result;
@@ -821,8 +908,8 @@ rgeo_wrap_geos_geometry_clone(VALUE factory,
   return result;
 }
 
-const GEOSGeometry*
-rgeo_convert_to_geos_geometry(VALUE factory, VALUE obj, VALUE type, int* state)
+VALUE
+rgeo_cast_to_geos_geometry(VALUE factory, VALUE obj, VALUE type, int* state)
 {
   VALUE object;
 
@@ -842,7 +929,7 @@ rgeo_convert_to_geos_geometry(VALUE factory, VALUE obj, VALUE type, int* state)
   }
 
   if (*state) {
-    return NULL;
+    return Qnil;
   }
 
   if (!rgeo_is_geos_object(object)) {
@@ -852,10 +939,17 @@ rgeo_convert_to_geos_geometry(VALUE factory, VALUE obj, VALUE type, int* state)
   }
 
   if (*state) {
-    return NULL;
+    return Qnil;
   }
 
-  return RGEO_GEOMETRY_DATA_PTR(object)->geom;
+  return object;
+}
+
+const GEOSGeometry*
+rgeo_convert_to_geos_geometry(VALUE factory, VALUE obj, VALUE type, int* state)
+{
+  VALUE object = rgeo_cast_to_geos_geometry(factory, obj, type, state);
+  return *state ? NULL : RGEO_GEOMETRY_DATA_PTR(object)->geom;
 }
 
 GEOSGeometry*
@@ -914,9 +1008,10 @@ rgeo_convert_to_detached_geos_geometry(VALUE obj,
   }
   prep = object_data->prep;
   if (prep && prep != (GEOSPreparedGeometry*)1 &&
-      prep != (GEOSPreparedGeometry*)2) {
+      prep != (GEOSPreparedGeometry*)2 && prep != (GEOSPreparedGeometry*)3) {
     GEOSPreparedGeom_destroy(prep);
   }
+  rgeo_unaccount_geometry_memory(object_data);
   object_data->geom = NULL;
   object_data->prep = NULL;
   object_data->factory = Qnil;

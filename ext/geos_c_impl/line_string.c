@@ -6,7 +6,7 @@
 
 #ifdef RGEO_GEOS_SUPPORTED
 
-#include <geos_c.h>
+#include "geos_calls.h"
 #include <ruby.h>
 #include <string.h>
 
@@ -560,17 +560,18 @@ cmethod_create_line(VALUE module, VALUE factory, VALUE start, VALUE end)
   has_z = (char)(factory_data->flags & RGEO_FACTORYFLAGS_SUPPORTS_Z_OR_M);
   point_type = rgeo_feature_point_module;
 
-  start_geom =
-    rgeo_convert_to_geos_geometry(factory, start, point_type, &state);
+  start = rgeo_cast_to_geos_geometry(factory, start, point_type, &state);
   if (state) {
     rb_jump_tag(state);
   }
 
-  end_geom = rgeo_convert_to_geos_geometry(factory, end, point_type, &state);
+  end = rgeo_cast_to_geos_geometry(factory, end, point_type, &state);
   if (state) {
     rb_jump_tag(state);
   }
 
+  start_geom = RGEO_GEOMETRY_DATA_PTR(start)->geom;
+  end_geom = RGEO_GEOMETRY_DATA_PTR(end)->geom;
   coord_seq = GEOSCoordSeq_create(2, 3);
   if (coord_seq) {
     populate_geom_into_coord_seq(start_geom, coord_seq, 0, has_z);
@@ -581,6 +582,8 @@ cmethod_create_line(VALUE module, VALUE factory, VALUE start, VALUE end)
     }
   }
 
+  RB_GC_GUARD(start);
+  RB_GC_GUARD(end);
   return result;
 }
 

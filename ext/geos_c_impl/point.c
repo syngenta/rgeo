@@ -6,7 +6,7 @@
 
 #ifdef RGEO_GEOS_SUPPORTED
 
-#include <geos_c.h>
+#include "geos_calls.h"
 #include <ruby.h>
 
 #include "coordinates.h"

@@ -72,7 +72,14 @@ class GeosPolygonTest < Minitest::Test # :nodoc:
     line_string = @factory.line_string([point1, point2])
     polygon2 = line_string.buffer(0.5)
 
-    assert_equal polygon, polygon2
+    # GEOS's buffer coordinates can differ by a few ulps across platforms.
+    assert_equal polygon.num_interior_rings, polygon2.num_interior_rings
+    expected_points = polygon.exterior_ring.points
+    actual_points = polygon2.exterior_ring.points
+    assert_equal expected_points.length, actual_points.length
+    expected_points.zip(actual_points) do |expected, actual|
+      assert_close_enough(expected, actual)
+    end
   end
 
   def test_simplify_preserve_topology

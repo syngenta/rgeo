@@ -1,4 +1,4 @@
-#include <geos_c.h>
+#include "geos_calls.h"
 #include <ruby.h>
 
 VALUE
