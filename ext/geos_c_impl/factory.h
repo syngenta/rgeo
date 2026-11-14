@@ -91,7 +91,16 @@ typedef struct
   const GEOSPreparedGeometry* prep;
   VALUE factory;
   VALUE klasses;
+  size_t geom_size;
+  size_t prep_size;
 } RGeo_GeometryData;
+
+void
+rgeo_account_geometry_memory(VALUE object);
+void
+rgeo_account_prepared_memory(VALUE object);
+void
+rgeo_unaccount_geometry_memory(RGeo_GeometryData* data);
 
 // Data types which indicate how RGeo types should be managed by Ruby.
 extern const rb_data_type_t rgeo_factory_type;
@@ -166,6 +175,11 @@ rgeo_wrap_geos_geometry_clone(VALUE factory,
 */
 const GEOSGeometry*
 rgeo_convert_to_geos_geometry(VALUE factory, VALUE obj, VALUE type, int* state);
+
+/* Retain this Ruby owner with RB_GC_GUARD if more Ruby allocation can follow.
+ */
+VALUE
+rgeo_cast_to_geos_geometry(VALUE factory, VALUE obj, VALUE type, int* state);
 
 /*
   Gets a GEOS geometry for a given ruby Geometry object. You must provide

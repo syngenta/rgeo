@@ -2,7 +2,6 @@
 
 #ifdef RGEO_GEOS_SUPPORTED
 
-#include <ctype.h>
 #include <geos_c.h>
 #include <ruby.h>
 #include <stdarg.h>
@@ -56,42 +55,11 @@ notice_handler(const char* fmt, ...)
 #endif
 }
 
-NORETURN(static void error_handler(const char* fmt, ...))
-{
-  // See https://en.cppreference.com/w/c/io/vfprintf
-  va_list args1;
-  va_start(args1, fmt);
-  va_list args2;
-  va_copy(args2, args1);
-  int size = 1 + vsnprintf(NULL, 0, fmt, args1);
-  va_end(args1);
-  char geos_full_error[size];
-  vsnprintf(geos_full_error, sizeof geos_full_error, fmt, args2);
-  va_end(args2);
-
-  // NOTE: strtok is destructive, geos_full_error is not to be used afterwards.
-  char* geos_error = strtok(geos_full_error, ":");
-  char* geos_message = strtok(NULL, ":");
-  while (isspace(*geos_message))
-    geos_message++;
-
-  if (streq(geos_error, "UnsupportedOperationException")) {
-    rb_raise(rb_eRGeoUnsupportedOperation, "%s", geos_message);
-  } else if (streq(geos_error, "IllegalArgumentException")) {
-    rb_raise(rb_eRGeoInvalidGeometry, "%s", geos_message);
-  } else if (streq(geos_error, "ParseException")) {
-    rb_raise(rb_eRGeoParseError, "%s", geos_message);
-  } else if (geos_message) {
-    rb_raise(rb_eGeosError, "%s: %s", geos_error, geos_message);
-  } else {
-    rb_raise(rb_eGeosError, "%s", geos_error);
-  }
-}
 
 void
 rgeo_init_geos_globals()
 {
-  initGEOS(notice_handler, error_handler);
+  initGEOS(notice_handler, rgeo_geos_error_handler);
 
   rgeo_module = rb_define_module("RGeo");
   rb_gc_register_mark_object(rgeo_module);

@@ -6,7 +6,7 @@
 
 #ifdef RGEO_GEOS_SUPPORTED
 
-#include <geos_c.h>
+#include "geos_calls.h"
 #include <ruby.h>
 
 #include "coordinates.h"
@@ -280,12 +280,12 @@ cmethod_create(VALUE module,
     if (len == actual_len) {
       polygon =
         GEOSGeom_createPolygon(exterior_geom, interior_geoms, actual_len);
-      if (polygon) {
-        FREE(interior_geoms);
-        // NOTE: we can return safely here, state cannot be other than 0.
-        return rgeo_wrap_geos_geometry(
-          factory, polygon, rgeo_geos_polygon_class);
-      }
+      /* GEOS owns the rings on both success and failure. */
+      FREE(interior_geoms);
+      rgeo_raise_geos_error();
+      return polygon ? rgeo_wrap_geos_geometry(
+                         factory, polygon, rgeo_geos_polygon_class)
+                     : Qnil;
     }
     for (i = 0; i < actual_len; ++i) {
       GEOSGeom_destroy(interior_geoms[i]);
